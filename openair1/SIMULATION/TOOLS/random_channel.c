@@ -207,6 +207,10 @@ static double tdl_b_amps_dB[] = {0.0, -2.2, -0.6, -0.6, -0.3, -1.2, -5.9, -2.2, 
 static double tdl_c_delays[] = {0.0000, 0.2167, 0.2333, 0.6333, 0.6500, 0.6667, 0.8000, 1.0833, 1.7333, 3.4833, 5.0333, 8.6500};
 static double tdl_c_amps_dB[] = {-6.9, 0.0, -7.7, -2.5, -2.4, -9.9, -8.0, -6.6, -7.1, -13.0, -14.2, -16.0};
 
+static double tdl_w_delays[] = {0, 1000}; 
+static double tdl_w_amps_dB[] = {0,   -4.4};
+
+
 static double tdl_d_delays[] = {//0,
   0,
   0.035,
@@ -353,27 +357,42 @@ static struct complexd R_sqrt_22_EPA_medium[16] = {{0.8375,0.0}, {0.5249,0.0}, {
 
 //Rayleigh1_orth_eff_ch_TM4
 
-void tdlModel(int  tdl_paths, double *tdl_delays, double *tdl_amps_dB, double DS_TDL, channel_desc_t *chan_desc ) {
+void tdlModel(int  tdl_paths, double *tdl_delays, double *tdl_amps_dB, double DS_TDL, channel_desc_t *chan_desc )  {
+  printf("--- Starting TDL Model Configuration ---\n");
+  printf("Initial parameters: paths=%d, DS_TDL=%e\n", tdl_paths, DS_TDL);
+
   int nb_rx=chan_desc-> nb_rx;
   int nb_tx=chan_desc-> nb_tx;
+
   chan_desc->nb_taps        = tdl_paths;
   chan_desc->Td             = tdl_delays[tdl_paths-1]*DS_TDL;
+ 
+  printf("\n--- Channel Parameters ---\n");
+  printf("Maximum delay spread (Td): %e\n", chan_desc->Td);
   printf("last path (%d) at %f * %e = %e\n",tdl_paths-1,tdl_delays[tdl_paths-1],DS_TDL,chan_desc->Td);
-  chan_desc->channel_length = (int) (2*chan_desc->sampling_rate*chan_desc->Td +
-                                     1 +
-                                     2/(M_PI*M_PI)*log(4*M_PI*chan_desc->sampling_rate*chan_desc->Td));
+  
+  chan_desc->channel_length = (int) (2*chan_desc->sampling_rate*chan_desc->Td + 1 + 2/(M_PI*M_PI)*log(4*M_PI*chan_desc->sampling_rate*chan_desc->Td));
+  printf("Calculated channel length: %d\n", chan_desc->channel_length);
+  printf("Sampling rate: %f Ms/s\n", chan_desc->sampling_rate);
   printf("TDL : %f Ms/s, nb_taps %d, Td %e, channel_length %d\n",chan_desc->sampling_rate,tdl_paths,chan_desc->Td,chan_desc->channel_length);
+  
   double sum_amps = 0;
+  
   chan_desc->amps           = calloc(chan_desc->nb_taps, sizeof(double));
-
   for (int i = 0; i<chan_desc->nb_taps; i++) {
     chan_desc->amps[i]      = pow(10,.1*tdl_amps_dB[i]);
     sum_amps += chan_desc->amps[i];
+    printf("Tap %d: Original amp_dB=%f, Converted amp=%f\n", 
+                   i, tdl_amps_dB[i], chan_desc->amps[i]);
   }
 
+  printf("\n--- Normalizing Amplitudes and Scaling Delays ---\n");
   for (int i = 0; i<chan_desc->nb_taps; i++) {
     chan_desc->amps[i] /= sum_amps;
     tdl_delays[i] *= DS_TDL;
+    printf("Tap %d: Normalized amp=%f, Scaled delay=%e\n", 
+                   i, chan_desc->amps[i], tdl_delays[i]);
+    
   }
 
   chan_desc->delays         = tdl_delays;
@@ -382,7 +401,7 @@ void tdlModel(int  tdl_paths, double *tdl_delays, double *tdl_amps_dB, double DS
   chan_desc->ch             = calloc(nb_tx*nb_rx, sizeof(struct complexd *));
   chan_desc->chF            = calloc(nb_tx*nb_rx, sizeof(struct complexd *));
   chan_desc->a              = calloc(chan_desc->nb_taps, sizeof(struct complexd *));
-  chan_desc->ricean_factor  = 1.0;
+  chan_desc->ricean_factor  = 0.0;
 
   for (int i = 0; i<nb_tx*nb_rx; i++)
     chan_desc->ch[i] = calloc(chan_desc->channel_length, sizeof(struct complexd));
@@ -771,7 +790,14 @@ channel_desc_t *new_channel_desc_scm(uint8_t nb_tx,
     case TDL_C:
       chan_desc->ricean_factor  = 1;
       tdl_m(c);
+      tdl_amps_dB=tdl_c_amps_dB;
       tdlModel(tdl_paths,  tdl_delays, tdl_amps_dB,  DS_TDL, chan_desc);
+      break;
+
+    case TDL_W:
+      chan_desc->ricean_factor = 0;
+      tdl_m(w);
+      tdlModel(tdl_paths, tdl_delays, tdl_amps_dB, DS_TDL, chan_desc);
       break;
 
     case TDL_D:
@@ -2251,21 +2277,41 @@ int get_modchannel_index(char *buf, int debug, void *vdata, telnet_printfunc_t p
 /*------------------------------------------------------------------------------------------------------------------*/
 
 int modelid_fromstrtype(char *modeltype) {
+  LOG_W(HW, "Attempting to get model for type: %s\n", modeltype);
   int modelid=map_str_to_int(channelmod_names,modeltype);
 
   if (modelid < 0)
     LOG_E(OCM,"random_channel.c: Error channel model %s unknown\n",modeltype);
-
+  else {
+        LOG_W(OCM, "Found model ID: %d for type: %s\n", modelid, modeltype);
+          }
   return modelid;
 }
 
 void init_channelmod(void) {
+ // LOG_W(OCM, "Starting channel model initialization...\n");
+
   paramdef_t channelmod_params[] = CHANNELMOD_PARAMS_DESC;
   int numparams = sizeofArray(channelmod_params);
+
+ // LOG_W(OCM, "Getting config with %d parameters\n", numparams);
   int ret = config_get(config_get_if(), channelmod_params, numparams, CHANNELMOD_SECTION);
   AssertFatal(ret >= 0, "configuration couldn't be performed");
+
+//  LOG_W(OCM, "Allocating %u channel descriptors\n", max_chan);
   defined_channels=calloc(max_chan,sizeof( channel_desc_t *));
   AssertFatal(defined_channels!=NULL, "couldn't allocate %u channel descriptors\n",max_chan);
+   
+  /* Print all the channel model and  values here */
+   // Print the registered channel models
+  LOG_W(OCM, "Checking available channel models:\n");
+  for(int i = 0; channelmod_names[i].name != NULL; i++) {
+     LOG_W(OCM, "Model %d: %s (ID: %d)\n", 
+     i, channelmod_names[i].name, channelmod_names[i].value);
+                         }
+
+
+
   /* look for telnet server, if it is loaded, add the channel modeling commands to it */
   add_telnetcmd_func_t addcmd = (add_telnetcmd_func_t)get_shlibmodule_fptr("telnetsrv", TELNET_ADDCMD_FNAME);
 
@@ -2345,3 +2391,18 @@ main(int argc,char **argv) {
 }
 
 #endif
+/*
+ * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The OpenAirInterface Software Alliance licenses this file to You under
+ * the OAI Public License, Version 1.1  (the "License"); you may not use this file
+ * except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.openairinterface.org/?page_id=698
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ 
+ * distributed under the License is distributed on an "AS IS" BASIS, */
+

@@ -161,7 +161,7 @@ void nr_phy_config_request_sim_pbchsim(PHY_VARS_gNB *gNB,
   if (mu>2) fp->nr_band = 257;
   else fp->nr_band = 78;
   fp->threequarter_fs= 0;
-
+  
   int bw_index = get_supported_band_index(mu, fp->nr_band > 256 ? FR2 : FR1, N_RB_DL);
   gNB_config->carrier_config.dl_bandwidth.value = get_supported_bw_mhz(fp->nr_band > 256 ? FR2 : FR1, bw_index);
 
@@ -174,6 +174,12 @@ void nr_phy_config_request_sim_pbchsim(PHY_VARS_gNB *gNB,
   gNB->configured    = 1;
   LOG_I(PHY,"gNB configured\n");
 }
+
+double tdl_delay_spread = 0.3e-6; // 300 ns delay spread
+int tdl_num_paths = 2;          // Number of TDL-C taps
+float tdl_amps_db[2] = {0.0,-4.8}; // Example normalized amplitudes
+double tdl_delays[2] = {0, 1000 }; // Example delays
+
 configmodule_interface_t *uniqCfg = NULL;
 int main(int argc, char **argv)
 {
@@ -215,7 +221,7 @@ int main(int argc, char **argv)
   //double pbch_sinr;
   //int pbch_tx_ant;
 
-  SCM_t channel_model=AWGN;//Rayleigh1_anticorr;
+  SCM_t channel_model=TDL_W;//Rayleigh1_anticorr;
 
 
   int N_RB_DL=273,mu=1;
@@ -298,6 +304,12 @@ int main(int argc, char **argv)
       case 'G':
         channel_model=ETU;
         break;
+			
+			case 'H':
+				LOG_W(PHY,"Channel is initialized\n");
+				channel_model=TDL_W;
+				break;
+
 
       default:
         printf("Unsupported channel model! Exiting.\n");

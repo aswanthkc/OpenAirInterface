@@ -923,13 +923,21 @@ int nr_pbch_channel_estimation(PHY_VARS_NR_UE *ue,
     }
 
     if( dmrss == 2) // update time statistics for last PBCH symbol
-    {
+    { char ilename[200];
+      snprintf(ilename,sizeof(ilename),"f_domain.m");
+      printf("The frequency domain is about to print\n");
+      LOG_M(ilename,"channel_F", (int16_t*) &dl_ch_estimates[aarx][ch_offset], ue->frame_parms.ofdm_symbol_size, 1, 1); 
+      
       // do ifft of channel estimate
       LOG_D(PHY,"Channel Impulse Computation Slot %d Symbol %d ch_offset %d\n", Ns, symbol, ch_offset);
       idft(idftsizeidx,
 	   (int16_t*) &dl_ch_estimates[aarx][ch_offset],
 	   (int16_t*) dl_ch_estimates_time[aarx],
 	   1);
+      char filename[200];
+      snprintf(filename,sizeof(filename), "t_domain.m");
+      LOG_M(filename,"channel_T", (int16_t *)dl_ch_estimates_time[aarx],ue->frame_parms.ofdm_symbol_size, 1, 1);
+   
     }
   }
 

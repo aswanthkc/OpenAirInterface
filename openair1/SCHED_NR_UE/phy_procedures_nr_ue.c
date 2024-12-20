@@ -541,16 +541,20 @@ static int nr_ue_pdsch_procedures(PHY_VARS_NR_UE *ue,
                                       pdsch_est_size,
                                       pdsch_dl_ch_estimates,
                                       ue->frame_parms.samples_per_slot_wCP, rxdataF);
-#if 0
-          ///LOG_M: the channel estimation
-          int nr_frame_rx = proc->frame_rx;
-          char filename[100];
-          for (uint8_t aarx=0; aarx<ue->frame_parms.nb_antennas_rx; aarx++) {
-            sprintf(filename,"PDSCH_CHANNEL_frame%d_slot%d_sym%d_port%d_rx%d.m", nr_frame_rx, nr_slot_rx, m, nl, aarx);
-            int **dl_ch_estimates = ue->pdsch_vars[gNB_id]->dl_ch_estimates;
-            LOG_M(filename,"channel_F",&dl_ch_estimates[nl*ue->frame_parms.nb_antennas_rx+aarx][ue->frame_parms.ofdm_symbol_size*m],ue->frame_parms.ofdm_symbol_size, 1, 1);
-          }
-#endif
+
+          // Add DMRS response printing here
+         
+              char filename[100];
+              sprintf(filename,"frm%d_slt%d_sym%d.m", 
+                              proc->frame_rx, nr_slot_rx, m);
+              LOG_I(PHY, "Creating DMRS file for frame %d slot %d symbol %d\n", 
+                            proc->frame_rx, nr_slot_rx, m);
+          // Use pdsch_dl_ch_estimates directly since it contains the fresh estimates
+              LOG_M(filename, "channel_F",
+                &pdsch_dl_ch_estimates[nl*1+0][pdsch_est_size*m],
+                ue->frame_parms.ofdm_symbol_size, 1, 1);
+              LOG_I(PHY, "DMRS channel estimate file created: %s\n", filename);
+          
         }
       }
     }

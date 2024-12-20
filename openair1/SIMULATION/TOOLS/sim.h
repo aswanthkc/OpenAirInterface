@@ -197,6 +197,7 @@ typedef enum {
   TDL_A,
   TDL_B,
   TDL_C,
+  TDL_W,
   TDL_D,
   TDL_E,
   Rayleigh8,
@@ -232,6 +233,7 @@ typedef enum {
   {"TDL_A",TDL_A},\
   {"TDL_B",TDL_B},\
   {"TDL_C",TDL_C},\
+  {"TDL_W",TDL_W},\
   {"TDL_D",TDL_D},\
   {"TDL_E",TDL_E},\
   {"Rayleigh8",Rayleigh8},\

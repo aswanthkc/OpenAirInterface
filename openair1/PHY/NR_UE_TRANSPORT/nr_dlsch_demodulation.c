@@ -167,6 +167,7 @@ static void nr_dlsch_channel_level_median(uint32_t rx_size_symbol,
                                           int n_rx,
                                           int length);
 
+
 /** \brief This function performs channel compensation (matched filtering) on the received RBs for this allocation.  In addition, it computes the squared-magnitude of the channel with weightings for
    16QAM/64QAM detection as well as dual-stream detection (cross-correlation)
     @param rxdataF_ext Frequency-domain received signal in RBs to be demodulated
@@ -1302,7 +1303,15 @@ static void nr_dlsch_extract_rbs(uint32_t rxdataF_sz,
       }
     }
   }
-}
+        char filename_est[100];
+        LOG_I(PHY,"Symbol estimate has started using the found DMRS\n");
+        LOG_I(PHY,"symbol%d\n",symbol); 
+        sprintf(filename_est, "sym%d.m", symbol);
+        LOG_M(filename_est, "channel_F", dl_ch_estimates_ext,50*12, 1, 1);
+        LOG_I(PHY,"Estimated file is created\n");                        
+        exit(0);
+        }
+
 
 void nr_dlsch_detection_mrc(uint32_t rx_size_symbol,
                             short n_tx,
